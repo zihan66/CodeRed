@@ -134,9 +134,14 @@ app.post('/shorten', function(req, resp) {
         }, redis.print);
 
         var short_url = "https://" + req.get('Host') + "/" + url_util.baseEncode(head);
-        resp.render('successful_page', {
-            'url': short_url,
-        });
+        if (url_util.isUrl(req.body.url)) {
+            resp.render('successful_page', {
+                'url': short_url,
+            });
+        } else {
+            resp.redirect(302, short_url);
+        }
+
     });
 });
 
