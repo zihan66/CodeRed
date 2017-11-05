@@ -29,7 +29,7 @@ app.use(bodyParser.urlencoded({
 
 
 // This is the test point
-app.get('/api', function(req, res) {
+app.get('/email', function(req, res) {
     emails = [];
     for (var i = 0; i < 10; i++) {
         emails.push({'email': chance.email()});
@@ -55,7 +55,9 @@ app.get('/:code', function(req, resp) {
     var code = req.params.code;
 
     if (code.length >= 8) {
-        resp.status(404).end('URL not found');
+        resp.status(404).render('markdown', {
+            'html': '<p>URL Not Found</p>',
+        });
         return;
     }
 
@@ -65,20 +67,38 @@ app.get('/:code', function(req, resp) {
 
             // Check the code exist first
             if (!url) {
-                resp.status(404).end('URL not found');
+                resp.status(404).render('markdown', {
+                    'html': '<p>URL Not Found</p>',
+                });
+                return;
+            }
+
+            // Check the expiry time
+            var current_time = new Date().getTime() / 1000;
+            // console.log(parseInt(url.time) + parseInt(url.expire), current_time);
+            if (url.expire >= 0 && parseInt(url.time) + parseInt(url.expire) < current_time) {
+                resp.status(403).render('markdown', {
+                    'html': '<p>URL Expired</p>',
+                });
                 return;
             }
 
             // Render URL
             if (url_util.isUrl(url.content)) {
+                // Is url, then do redirect
                 resp.redirect(302, url.content);
             } else {
-                resp.send(markdown.toHTML(url.content));
+                // Not url, render markdown
+                resp.render('markdown', {
+                    'html': markdown.toHTML(url.content),
+                })
             }
 
         });
     } else {
-        resp.status(404).send('Invalid URL');
+        resp.status(404).render('markdown', {
+            'html': '<p>Invalid URL</p>',
+        });
     }
 });
 
@@ -97,6 +117,7 @@ app.post('/shorten', function(req, resp) {
         if (head < 0) head = 1;
 
         // Check the url is valid
+        console.log(req.body);
         var url = req.body.url;
         var expire = parseInt(req.body.expire) || -1;
         if (!url || (!Number.isInteger(expire))) {
@@ -112,7 +133,7 @@ app.post('/shorten', function(req, resp) {
             'expire': expire,
         }, redis.print);
 
-        var short_url = req.protocol + "://" + req.get('Host') + "/" + url_util.baseEncode(head);
+        var short_url = "https://" + req.get('Host') + "/" + url_util.baseEncode(head);
         resp.render('successful_page', {
             'url': short_url,
         });
